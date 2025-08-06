@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Neo4j.Driver;
 
 namespace Neoflix
@@ -27,9 +28,10 @@ namespace Neoflix
         /// <param name="password">Password for the user.</param>
         /// <returns>A task that represents the asynchronous initialization operation.</returns>
         // tag::initDriver[]
-        public static Task InitDriverAsync(string uri, string username, string password)
+        public async static Task<Task> InitDriverAsync(string uri, string username, string password)
         {
-            // TODO: Create an instance of the driver here
+            _driver = GraphDatabase.Driver(uri, AuthTokens.Basic(username, password));
+            await _driver.VerifyConnectivityAsync();
             return Task.CompletedTask;
         }
         // end::initDriver[]
