@@ -37,15 +37,29 @@ namespace Neoflix.Services
         /// The task result contains a list of records.
         /// </returns>
         // tag::all[]
-        public async Task<Dictionary<string, object>[]> AllAsync(string sort = "title", 
-            Ordering order = Ordering.Asc, int limit = 6, int skip = 0, string userId = null)
+            public async Task<Dictionary<string, object>[]> AllAsync(string sort = "title", 
+                Ordering order = Ordering.Asc, int limit = 6, int skip = 0, string userId = null)
         {
-            // TODO: Open an Session
-            // TODO: Execute a query in a new Read Transaction
-            // TODO: Get a list of Movies from the Result
-            // TODO: Close the session
+            await using var session = _driver.AsyncSession();
 
-            return await Task.FromResult(Fixtures.Popular.Skip(skip).Take(limit).ToArray());
+            return await session.ExecuteReadAsync(async tx =>
+            {
+                var cursor = await tx.RunAsync(@$"
+                  MATCH (m:Movie)
+                  WHERE m.{sort} IS NOT NULL
+                  RETURN m {{ .* }} AS movie
+                  ORDER BY m.{sort} {order.ToString("G").ToUpper()}
+                  SKIP $skip
+                  LIMIT $limit", new { skip, limit });
+
+                var records = await cursor.ToListAsync();
+                var movies = records
+                    .Select(x => x["movie"].As<Dictionary<string, object>>())
+                    .ToArray();
+
+                return movies;
+            });
+
         }
         // end::all[]
 

@@ -20,7 +20,7 @@ namespace Neoflix.Challenges
             var secondOutput = await service.AllAsync(limit: 1, skip: 1);
 
             Assert.NotNull(secondOutput);
-            Assert.AreEqual(1, secondOutput.Length);
+            Assert.AreEqual(1, secondOutput.Length); 
 
             var firstAsDict = firstOutput.First();
             var secondAsDict = secondOutput.First();
@@ -43,6 +43,6 @@ namespace Neoflix.Challenges
             TestContext.Out.WriteLine("Here is the answer to the quiz question on the lesson:");
             TestContext.Out.WriteLine("What is the title of the highest rated movie in the recommendations dataset?");
             TestContext.Out.WriteLine($"Copy and paste the following answer into the text box: {firstAsDict["title"]}\n");
-        }
+        }   
     }
 }
