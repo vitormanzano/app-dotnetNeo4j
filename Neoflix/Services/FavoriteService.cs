@@ -43,14 +43,14 @@ namespace Neoflix.Services
             return await session.ExecuteReadAsync(async tx =>
             {
                 var query = $@"
-            MATCH (u:User {{userId: $userId}})-[r:HAS_FAVORITE]->(m:Movie)
-            RETURN m {{
-                .*,
-                favorite: true
-            }} AS movie
-            ORDER BY m.{sort} {order.ToString("G").ToUpper()}
-            SKIP $skip
-            LIMIT $limit";
+                    MATCH (u:User {{userId: $userId}})-[r:HAS_FAVORITE]->(m:Movie)
+                    RETURN m {{
+                        .*,
+                        favorite: true
+                    }} AS movie
+                    ORDER BY m.{sort} {order.ToString("G").ToUpper()}
+                    SKIP $skip
+                    LIMIT $limit";
 
                 var cursor = await tx.RunAsync(query, new { userId, skip, limit });
                 var records = await cursor.ToListAsync();
