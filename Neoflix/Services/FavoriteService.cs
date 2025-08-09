@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Neo4j.Driver;
 using Neoflix.Example;
 using Neoflix.Exceptions;
+using Neoflix.Services;
 
 namespace Neoflix.Services
 {
@@ -44,10 +45,7 @@ namespace Neoflix.Services
             {
                 var query = $@"
                     MATCH (u:User {{userId: $userId}})-[r:HAS_FAVORITE]->(m:Movie)
-                    RETURN m {{
-                        .*,
-                        favorite: true
-                    }} AS movie
+                    RETURN m {{ .* }} AS movie
                     ORDER BY m.{sort} {order.ToString("G").ToUpper()}
                     SKIP $skip
                     LIMIT $limit";

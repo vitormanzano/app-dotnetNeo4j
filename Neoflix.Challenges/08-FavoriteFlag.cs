@@ -40,12 +40,13 @@ namespace Neoflix.Challenges
             Assert.True(addCheck.Any(x => x["tmdbId"].As<string>() == first["tmdbId"].As<string>()));
 
             var checks = await movieService.AllAsync("imdbRating", Ordering.Desc, limit: 2, userId: UserId);
-            var checkFirst = checks[0];
+            var checkFirst = checks[0]; //The test doesn't pass because here, in the checks, favorite are null and cannot cast null to boolean. I don't know why this is happening //TODO 
             var checkSecond = checks[1];
 
             Assert.AreEqual(add["tmdbId"].As<string>(), checkFirst["tmdbId"].As<string>());
             Assert.True(checkFirst["favorite"].As<bool>());
             Assert.False(checkSecond["favorite"].As<bool>());
+          
         }
     }
 }
