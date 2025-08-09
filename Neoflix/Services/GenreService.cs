@@ -87,19 +87,38 @@ namespace Neoflix.Services
         /// The task result contains a record.
         /// </returns>
         // tag::find[]
-        public Task<Dictionary<string, object>> FindGenreAsync(string name)
+        public async Task<Dictionary<string, object>> FindGenreAsync(string name)
         {
-            // TODO: Open a new session
-            // TODO: Get Genre information from the database
-            // TODO: return null if the genre is not found
-            // TODO: Close the session
+            await using var session = _driver.AsyncSession();
 
-            return Task.FromResult(
-                Fixtures
-                    .Genres
-                    .OfType<Dictionary<string, object>>()
-                    .First(x => x["name"] == name));
-        }
+            return await session.ExecuteReadAsync(async tx =>
+            {
+                var query = @"
+                    MATCH (g:Genre {name: $name})<-[:IN_GENRE]-(m:Movie)
+                    WHERE m.imdbRating IS NOT NULL
+                    AND m.poster IS NOT NULL
+                    AND g.name <> '(no genres listed)'
+                    WITH g, m
+                    ORDER BY m.imdbRating DESC
+                    WITH g, head(collect(m)) AS movie
+                    RETURN g {
+                        link: '/genres/' + g.name,
+                        .name,
+                        movies: count { (g)<-[:IN_GENRE]-() },
+                        poster: movie.poster
+                    } AS genre";
+
+                var cursor = await tx.RunAsync(query, new { name });
+
+                if (!await cursor.FetchAsync())
+                {
+                    throw new NotFoundException($"Could not find a genre with the name 'vimanzanovillela'.");
+                }
+
+                return cursor.Current["genre"].As<Dictionary<string, object>>();
+            });
+
         // end::find[]
+        }
     }
 }
