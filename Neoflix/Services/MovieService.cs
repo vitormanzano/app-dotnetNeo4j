@@ -43,12 +43,14 @@ namespace Neoflix.Services
         {
             await using var session = _driver.AsyncSession();
 
-            var records = await session.ExecuteReadAsync(async tx =>
+            return await session.ExecuteReadAsync(async tx =>
             {
+                // Get an array of IDs for the User's favorite movies
                 var favorites = await GetUserFavoritesAsync(tx, userId);
 
-                var query = $@"
-                    MATCH (m:Movie)-[:IN_GENRE]->(:Genre {{name: $name}})
+                // tag::allcypher[]
+                var cursor = await tx.RunAsync(@$"
+                    MATCH (m:Movie)
                     WHERE m.{sort} IS NOT NULL
                     RETURN m {{
                         .*,
@@ -56,14 +58,20 @@ namespace Neoflix.Services
                     }} AS movie
                     ORDER BY m.{sort} {order.ToString("G").ToUpper()}
                     SKIP $skip
-                    LIMIT $limit";
-                var cursor = await tx.RunAsync(query, new { skip, limit, favorites });
-                return await cursor.ToListAsync();
-            });
+                    LIMIT $limit", new { skip, limit, favorites });
+                // end::allcypher[]
 
-            return records
-                .Select(x => x["movie"].As<Dictionary<string, object>>())
-                .ToArray();
+                // tag::allmovies[]
+                var records = await cursor.ToListAsync();
+                var movies = records
+                    .Select(x => x["movie"].As<Dictionary<string, object>>())
+                    .ToArray();
+                // end::allmovies[]
+
+                // tag::return[]
+                return movies;
+                // end::return[]
+            });
 
         }
         // end::all[]
