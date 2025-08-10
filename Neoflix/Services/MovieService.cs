@@ -222,10 +222,31 @@ namespace Neoflix.Services
         // tag::findById[]
         public async Task<Dictionary<string, object>> FindByIdAsync(string id, string userId = null)
         {
-            // TODO: Find a movie by its ID
+            await using var session = _driver.AsyncSession();
+
+            var records = await session.ExecuteReadAsync(async tx =>
+            {
+                var favorites = await GetUserFavoritesAsync(tx, userId);
+
+                var query = @"
+                    MATCH (m:Movie {tmdbId: $id})
+                    RETURN m {
+                        .*,actors: [ (a)-[r:ACTED_IN]->(m) | a { .*, role: r.role } ],
+                            directors: [ (d)-[:DIRECTED]->(m) | d { .* } ],
+                            genres: [ (m)-[:IN_GENRE]->(g) | g { .name }],
+                            ratingCount: count { (m)<-[:RATED]-() },
+                      favorite: m.tmdbId IN $favorites
+                    } AS movie
+                    LIMIT 1";
+                var cursor = await tx.RunAsync(query, new { favorites, id });
+                return await cursor.ToListAsync();
+            });
+
+            return records
+                .First()["movie"].As<Dictionary<string, object>>();
+                ;
             // MATCH (m:Movie {tmdbId: $id})
 
-            return await Task.FromResult(Fixtures.Goodfellas);
         }
         // end::findById[]
 
@@ -243,23 +264,36 @@ namespace Neoflix.Services
         /// The task result contains a list of records.
         /// </returns>
         // tag::getSimilarMovies[]
-        public async Task<Dictionary<string, object>[]> GetSimilarMoviesAsync(string id, int limit, int skip)
+        public async Task<Dictionary<string, object>[]> GetSimilarMoviesAsync(string id, int limit, int skip, string userId = null)
         {
-            // TODO: Get similar movies based on genres or ratings
-            var random = new Random();
-            var exampleData = Fixtures.Popular
-                .Skip(skip)
-                .Take(limit)
-                .Select(popularItem =>
-                    popularItem.Concat(new[]
-                        {
-                            new KeyValuePair<string, object>("score", Math.Round(random.NextDouble() * 100, 2))
-                        })
-                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value))
-                .ToArray();
-            return await Task.FromResult(exampleData);
-            // end::getSimilarMovies[]
+            await using var session = _driver.AsyncSession();
+
+            var records = await session.ExecuteReadAsync(async tx =>
+            {
+                var favorites = await GetUserFavoritesAsync(tx, userId);
+
+                var query = @"
+                    MATCH (:Movie {tmdbId: $id})-[:IN_GENRE|ACTED_IN|DIRECTED]->()<-[:IN_GENRE|ACTED_IN|DIRECTED]-(m)
+                    WHERE m.imdbRating IS NOT NULL
+                    WITH m, count(*) AS inCommon
+                    WITH m, inCommon, m.imdbRating * inCommon AS score
+                    ORDER BY score DESC
+                    SKIP $skip
+                    LIMIT $limit
+                    RETURN m {
+                        .*,
+                        score: score,
+                        favorite: m.tmdbId IN $favorites
+                    } AS movie";
+                var cursor = await tx.RunAsync(query, new { id, skip, limit, favorites });
+                return await cursor.ToListAsync();
+            });
+
+            return records
+                .Select(x => x["movie"].As<Dictionary<string, object>>())
+                .ToArray();  
         }
+        // end::getSimilarMovies[]
 
         /// <summary>
         /// Get a list of tmdbId properties for the movies that the user has added to their "My Favorites" list.
